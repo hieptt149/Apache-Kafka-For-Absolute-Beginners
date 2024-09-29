@@ -1,1 +1,1 @@
-$KAFKA_HOME/bin/windows/kafka-topics --describe  --zookeeper localhost:2181 --topic invoice
+$KAFKA_HOME/bin/windows/kafka-topics --describe  --bootstrap-server localhost:9092 --topic invoice
