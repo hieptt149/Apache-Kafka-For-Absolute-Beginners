@@ -21,12 +21,41 @@ public class HelloProducer {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, AppConfigs.bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, IntegerSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, AppConfigs.transactionId);
 
         KafkaProducer<Integer, String> producer = new KafkaProducer<>(props);
+        producer.initTransactions();
 
-        logger.info("Start sending messages...");
-        for (int i = 1; i <= AppConfigs.numEvents; i++) {
-            producer.send(new ProducerRecord<>(AppConfigs.topicName, i, "Simple Message-" + i));
+        logger.info("Starting first transaction...");
+        producer.beginTransaction();
+        try {
+            for (int i = 1; i <= AppConfigs.numEvents; i++) {
+                producer.send(new ProducerRecord<>(AppConfigs.topicName1, i, "Simple Message-T1-" + i));
+                producer.send(new ProducerRecord<>(AppConfigs.topicName2, i, "Simple Message-T1-" + i));
+            }
+            logger.info("Committing first transaction...");
+            producer.commitTransaction();
+        } catch (Exception e) {
+            logger.error("Exception in first transaction. Aborting...");
+            producer.abortTransaction();
+            producer.close();
+            throw new RuntimeException(e);
+        }
+
+        logger.info("Starting second transaction...");
+        producer.beginTransaction();
+        try {
+            for (int i = 1; i <= AppConfigs.numEvents; i++) {
+                producer.send(new ProducerRecord<>(AppConfigs.topicName1, i, "Simple Message-T2-" + i));
+                producer.send(new ProducerRecord<>(AppConfigs.topicName2, i, "Simple Message-T2-" + i));
+            }
+            logger.info("Aborting second transaction...");
+            producer.abortTransaction();
+        } catch (Exception e) {
+            logger.error("Exception in second transaction. Aborting...");
+            producer.abortTransaction();
+            producer.close();
+            throw new RuntimeException(e);
         }
 
         logger.info("Finished - Closing Kafka Producer.");
